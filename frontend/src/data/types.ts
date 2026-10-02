@@ -36,3 +36,13 @@ export type OverviewResult = {
   cards: { label: string; value: number }[]
   modules: { name: string; created: number; pending: number; abnormal: number }[]
 }
+
+// 跨模块驱动的待办：目前由裂缝复核结论驱动治理工程的「待核项」。
+export type TodoRow = {
+  id: number
+  status: string
+  source: string
+  // 去重键：同一条裂缝的复核只允许生成一条待核项，例如 crack:CRAC-0003
+  sourceKey: string
+  [field: string]: string | number | boolean
+}

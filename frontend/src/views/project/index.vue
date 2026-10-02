@@ -24,6 +24,50 @@
       </span>
     </p>
 
+    <section class="todo-panel">
+      <h3 class="todo-title">裂缝复核待核项（{{ pendingTodos.length }} 条待核）</h3>
+      <p class="page-desc">由「持续变宽」裂缝的复核结论「需工程治理」驱动；同一条裂缝只生成一条，重复复核不会多出。</p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>待办</th>
+            <th>裂缝编号</th>
+            <th>所属隐患点</th>
+            <th>复核结论</th>
+            <th>复核人</th>
+            <th>生成日期</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="todo in todos" :key="String(todo.id)">
+            <td>{{ todo.title }}</td>
+            <td>{{ todo.crackCode }}</td>
+            <td>{{ todo.site || '—' }}</td>
+            <td>{{ todo.conclusion }}</td>
+            <td>{{ todo.reviewer || '—' }}</td>
+            <td>{{ todo.createdAt }}</td>
+            <td><span class="status-badge" :data-status="todo.status">{{ todo.status }}</span></td>
+            <td>
+              <button
+                v-if="todo.status === '待核'"
+                class="link"
+                type="button"
+                @click="finishTodo(todo.id)"
+              >
+                核实闭环
+              </button>
+              <span v-else class="muted-text">—</span>
+            </td>
+          </tr>
+          <tr v-if="!todos.length">
+            <td colspan="8" class="empty-state">暂无待核项：裂缝复核结论为「需工程治理」时会自动生成一条</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
@@ -79,6 +123,11 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import {
+  listProjectTodos,
+  resolveProjectTodo,
+  type ProjectTodo,
+} from '@/api/crack-domain'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('project')
@@ -92,6 +141,8 @@ const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+const todos = ref<ProjectTodo[]>([])
+const pendingTodos = computed(() => todos.value.filter((todo) => todo.status === '待核'))
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -122,12 +173,23 @@ function runAction(action: string, row: EntryRow) {
   reload()
 }
 
+function finishTodo(id: number) {
+  errorMessage.value = ''
+  const result = resolveProjectTodo(id)
+  if (!result.ok) {
+    errorMessage.value = result.message
+    return
+  }
+  reload()
+}
+
 function reload() {
   errorMessage.value = ''
   try {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    todos.value = listProjectTodos()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '治理工程列表读取失败'
   }
