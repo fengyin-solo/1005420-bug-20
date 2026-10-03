@@ -11,6 +11,26 @@
       </div>
     </header>
 
+    <section class="todo-panel">
+      <h3>治理工程待核项（由隐患核销复核结论「需工程治理」驱动）</h3>
+      <p v-if="!todos.length" class="muted-text">暂无待核项</p>
+      <div v-for="todo in todos" :key="todo.id" class="todo-row">
+        <span>
+          <span class="todo-badge" v-if="todo.状态 === '待核'">待核</span>
+          <span class="todo-done" v-else>已核办</span>
+          {{ todo.核销编号 }} · {{ todo.所属隐患点 }} — {{ todo.待核内容 }}（{{ todo.生成日期 }}）
+        </span>
+        <button
+          v-if="todo.状态 === '待核'"
+          class="link"
+          type="button"
+          @click="resolveTodo(todo.id)"
+        >
+          核办
+        </button>
+      </div>
+    </section>
+
     <div class="stat-row">
       <article v-for="item in stats" :key="item.label" class="stat-card">
         <span class="stat-label">{{ item.label }}</span>
@@ -76,10 +96,13 @@ import { computed, onMounted, ref } from 'vue'
 import {
   downloadEntries,
   listEntries,
+  listGovernanceTodos,
   moduleMeta,
+  resolveGovernanceTodo,
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
+import type { GovernanceTodo } from '@/data/governance-todos'
 
 const meta = moduleMeta('project')
 const columns = ["工程编号", "所属隐患点", "工程类型", "批复日期", "批复金额", "承建单位", "完工日期", "工程状态"]
@@ -92,6 +115,17 @@ const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+const todos = ref<GovernanceTodo[]>([])
+
+function loadTodos() {
+  todos.value = listGovernanceTodos()
+}
+
+function resolveTodo(id: number) {
+  resolveGovernanceTodo(id)
+  loadTodos()
+}
+
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -133,5 +167,8 @@ function reload() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  reload()
+  loadTodos()
+})
 </script>
